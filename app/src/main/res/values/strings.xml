@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SNI Spoofing</string>
+    <string name="tile_label">SNI Spoof</string>
+    <string name="notif_channel">Tunnel</string>
+    <string name="notif_channel_desc">VPN tunnel status and controls</string>
+    <string name="notif_connecting">Connecting…</string>
+    <string name="notif_connected">Connected — traffic protected</string>
+    <string name="notif_disconnect">Disconnect</string>
+    <string name="log_connecting">Connecting: establishing TUN and starting engine…</string>
+    <string name="log_connected">Connected. Active profile: %1$s</string>
+    <string name="log_disconnected">Disconnected.</string>
+    <string name="log_root_unavailable">Root unavailable — falling back to no-root desync</string>
+    <string name="err_no_profile">No profile selected. Pick one in Settings first.</string>
+    <string name="err_vpn_declined">VPN permission denied or establish() failed.</string>
+</resources>
