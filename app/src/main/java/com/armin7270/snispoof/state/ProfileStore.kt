@@ -18,6 +18,13 @@ class ProfileStore(context: Context) {
     private val _selectedId = MutableStateFlow(prefs.getString(KEY_SELECTED, null))
     val selectedId: StateFlow<String?> = _selectedId
 
+    init {
+        // first run: nothing selected yet -> pick the first profile automatically
+        if (_selectedId.value == null) {
+            _profiles.value.firstOrNull()?.let { select(it.id) }
+        }
+    }
+
     fun selected(): SpoofProfile? = _profiles.value.firstOrNull { it.id == _selectedId.value }
 
     fun save(profile: SpoofProfile) {

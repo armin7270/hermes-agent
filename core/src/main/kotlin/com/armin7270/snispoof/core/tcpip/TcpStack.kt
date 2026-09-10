@@ -57,6 +57,8 @@ class TcpFlow internal constructor(
     private var finSent = false
     private var finSeq: Long = 0
     @Volatile private var finAcked = false
+    private var synSeq: Long = -1L
+    private var synAckSent = false
 
     class Segment(val seq: Long, val data: ByteArray, val fin: Boolean) {
         var sentAt: Long = 0
@@ -90,7 +92,12 @@ class TcpFlow internal constructor(
         when (state) {
             State.SYN_RECEIVED -> {
                 if (flags and Flags.SYN != 0) {
-                    // first SYN or a retransmitted one: (re-)send SYN-ACK
+                    if (synSeq == -1L || synSeq != seq) {
+                        // first SYN (or a client restarting with a new ISN)
+                        synSeq = seq
+                        synAckSent = false
+                    }
+                    // retransmitted SYN: re-send the SAME SYN-ACK (same ISS)
                     sendSynAck(seq)
                     return
                 }
@@ -184,11 +191,14 @@ class TcpFlow internal constructor(
     // ----------------------------------------------------------------- out
 
     private fun sendSynAck(clientSeq: Long) {
-        iss = ((ISS_COUNTER.incrementAndGet().toLong() * 2654435761L) +
-                (System.currentTimeMillis() and 0xffffffL)) and 0xffffffffL
-        rcvNext = (clientSeq + 1) and 0xffffffffL
-        sndUna = iss
-        sndNext = (iss + 1) and 0xffffffffL
+        if (!synAckSent) {
+            iss = ((ISS_COUNTER.incrementAndGet().toLong() * 2654435761L) +
+                    (System.currentTimeMillis() and 0xffffffL)) and 0xffffffffL
+            rcvNext = (clientSeq + 1) and 0xffffffffL
+            sndUna = iss
+            sndNext = (iss + 1) and 0xffffffffL
+            synAckSent = true
+        }
         val pkt = PacketBuilder.tcp(
             srcIp = dstIp, dstIp = srcIp, srcPort = dstPort, dstPort = srcPort,
             seq = iss, ack = rcvNext, flags = Flags.SYN or Flags.ACK,

@@ -49,7 +49,11 @@ class DohResolver(
 
     /** Raw DNS wire-format query → response (cached). */
     suspend fun query(wire: ByteArray): ByteArray? = withContext(Dispatchers.IO) {
-        val key = wire.let { "$it".hashCode().toString() + "_" + wire.size + "_" + wire.take(2).toHex() }
+        // content-based cache key: first 2 bytes are the query ID which varies
+        // per query, so normalise it to zero before hashing
+        val normalized = wire.copyOf()
+        if (normalized.size >= 4) { normalized[0] = 0; normalized[1] = 0 }
+        val key = com.armin7270.snispoof.core.util.Hex.encode(normalized)
         val cached = cache[key]
         if (cached != null && System.currentTimeMillis() < cached.expiresAt) return@withContext cached.response
 
@@ -326,7 +330,12 @@ class DnsServer(
                         }
                     }
                 }
-                sink.send(PacketBuilder.udp(tunIp, srcIp, 53, srcPort, response))
+                // the answer may come from the cache or DoH with a different
+                // transaction ID — always reply with the client's own ID
+                val out = response.copyOf()
+                out[0] = wire[0]
+                out[1] = wire[1]
+                sink.send(PacketBuilder.udp(tunIp, srcIp, 53, srcPort, out))
             } catch (e: Exception) {
                 log("dns: ${e.message}")
             }

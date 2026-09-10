@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.ParcelFileDescriptor
 import com.armin7270.snispoof.R
 import com.armin7270.snispoof.state.AppSettings
+import com.armin7270.snispoof.state.ConnectionState
 import com.armin7270.snispoof.state.EngineStats
 import com.armin7270.snispoof.state.PerAppMode
 import com.armin7270.snispoof.state.PreferencesRepository
@@ -94,6 +95,12 @@ class SpoofVpnService : VpnService() {
 
     override fun onDestroy() {
         teardown()
+        val st = VpnStateStore.state.value
+        if (st == ConnectionState.CONNECTED || st == ConnectionState.CONNECTING ||
+            st == ConnectionState.DISCONNECTING
+        ) {
+            VpnStateStore.markDisconnected()
+        }
         super.onDestroy()
     }
 
@@ -275,8 +282,11 @@ class SpoofVpnService : VpnService() {
                         socket = used
                         protector?.protectSocket(socket)
                     }
+                    // apply() already wrote the (possibly rewritten) first payload
+                    pump(flow, socket)
+                } else {
+                    pump(flow, socket, first)
                 }
-                pump(flow, socket, first)
             } catch (e: Exception) {
                 VpnStateStore.log("relay $dstLabel failed: ${e.message}")
                 runCatching { flow.rst() }
