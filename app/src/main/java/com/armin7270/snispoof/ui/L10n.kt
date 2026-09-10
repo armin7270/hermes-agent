@@ -16,3 +16,6 @@ object L10n {
 
 @Composable
 fun t(en: String, fa: String): String = if (L10n.isPersian) fa else en
+
+/** Non-composable variant for callbacks. */
+fun tNoCompose(en: String, fa: String): String = if (L10n.isPersian) fa else en

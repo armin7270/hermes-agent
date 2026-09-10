@@ -12,6 +12,7 @@ class VpnViewModel(private val appContext: Context) : ViewModel() {
 
     private val prefs = PreferencesRepository(appContext)
     val profileStore = ProfileStore.get(appContext)
+    val configStore = ConfigStore.get(appContext)
 
     val connectionState: StateFlow<ConnectionState> = VpnStateStore.state
     val stats: StateFlow<EngineStats> = VpnStateStore.stats
@@ -23,6 +24,9 @@ class VpnViewModel(private val appContext: Context) : ViewModel() {
 
     val profiles: StateFlow<List<com.armin7270.snispoof.core.engine.SpoofProfile>> = profileStore.profiles
     val selectedProfileId: StateFlow<String?> = profileStore.selectedId
+
+    val configs: StateFlow<List<com.armin7270.snispoof.core.proxy.ProxyConfig>> = configStore.configs
+    val selectedConfigId: StateFlow<String?> = configStore.selectedId
 
     fun connect() {
         VpnStateStore.clearError()
@@ -54,6 +58,14 @@ class VpnViewModel(private val appContext: Context) : ViewModel() {
         profileStore.importAll(imported)
         return profiles.value.size - before
     }
+
+    // ---- proxy configs ----
+
+    fun importConfigs(text: String): Int = configStore.import(text)
+
+    fun selectConfig(id: String?) = configStore.select(id)
+
+    fun deleteConfig(id: String) = configStore.delete(id)
 
     fun setAutoStartBoot(v: Boolean) = viewModelScope.launch { prefs.setAutoStartBoot(v) }
     fun setBlockQuic(v: Boolean) = viewModelScope.launch { prefs.setBlockQuic(v) }

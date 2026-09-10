@@ -1,6 +1,7 @@
 package com.armin7270.snispoof.core.tcpip
 
 import com.armin7270.snispoof.core.packet.Flags
+import com.armin7270.snispoof.core.packet.Ip4
 import com.armin7270.snispoof.core.packet.IpPacket
 import com.armin7270.snispoof.core.packet.PacketBuilder
 import kotlinx.coroutines.CancellationException
@@ -397,6 +398,7 @@ class TcpStack(
     val sink: PacketSink,
     private val mtu: Int,
     val listener: FlowListener? = null,
+    val stackLog: ((String) -> Unit)? = null,
 ) {
     val mss: Int = (mtu - 40).coerceIn(216, 65495)
     val rcvWindow: Int = 65535
@@ -409,6 +411,7 @@ class TcpStack(
         val flow = flows[key]
         if (flow == null) {
             if (p.hasFlag(Flags.SYN) && !p.hasFlag(Flags.ACK)) {
+                stackLog?.invoke("tcp: new flow ${p.srcIp}:${p.srcPort} -> ${Ip4.toString(p.dstIp)}:${p.dstPort}")
                 val nf = TcpFlow(p.srcIp, p.srcPort, p.dstIp, p.dstPort, this)
                 flows[key] = nf
                 nf.handle(p) // sends SYN-ACK

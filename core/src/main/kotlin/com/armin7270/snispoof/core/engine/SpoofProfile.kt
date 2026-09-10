@@ -33,8 +33,8 @@ data class SpoofProfile(
     val connectIp: String = "188.114.98.0",     // CONNECT_IP
     val connectPort: Int = 443,                 // CONNECT_PORT
     val fakeSni: String = "auth.vercel.com",    // FAKE_SNI
-    val substitute: Boolean = true,             // connect to connectIp instead of original dst
-    val desyncMethod: String = DesyncMethod.SPLIT_N.id,
+    val substitute: Boolean = false,            // connect to connectIp instead of original dst
+    val desyncMethod: String = DesyncMethod.SPLIT_SNI.id,
     val splitN: Int = 5,
     val splitAt: Int = 2,
     val fragmentCount: Int = 4,
@@ -59,19 +59,21 @@ data class SpoofProfile(
         fun defaultProfiles(): List<SpoofProfile> = listOf(
             SpoofProfile(
                 id = "cf-default",
-                name = "Cloudflare · split 5",
+                name = "Cloudflare · split at SNI",
                 matchScope = MatchScope.CLOUDFLARE.id,
                 connectIp = "188.114.98.0",
                 fakeSni = "auth.vercel.com",
-                desyncMethod = DesyncMethod.SPLIT_N.id,
+                substitute = false,
+                desyncMethod = DesyncMethod.SPLIT_SNI.id,
             ),
             SpoofProfile(
-                id = "cf-sni-split",
-                name = "Cloudflare · split at SNI",
+                id = "cf-frag",
+                name = "Cloudflare · split 5",
                 matchScope = MatchScope.CLOUDFLARE.id,
                 connectIp = "104.16.0.0",
                 fakeSni = "www.speedtest.net",
-                desyncMethod = DesyncMethod.SPLIT_SNI.id,
+                substitute = false,
+                desyncMethod = DesyncMethod.SPLIT_N.id,
             ),
             SpoofProfile(
                 id = "all-443",

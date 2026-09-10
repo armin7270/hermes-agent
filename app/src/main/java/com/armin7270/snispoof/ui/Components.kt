@@ -346,6 +346,24 @@ fun ConnectButton(
 }
 
 @Composable
+fun ActionButton(label: String, accent: Color, enabled: Boolean = true, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(46.dp)
+            .background(
+                if (enabled) accent.copy(alpha = 0.18f) else Color(0x33FFFFFF),
+                RoundedCornerShape(14.dp),
+            )
+            .border(1.dp, accent.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, color = accent, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+    }
+}
+
+@Composable
 fun StatChip(label: String, value: String, accent: Color) {
     Column(
         modifier = Modifier

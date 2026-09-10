@@ -52,9 +52,20 @@ class PacketEngine(
     private val relay: RelayStarter,
     private val log: (String) -> Unit,
 ) {
-    val dnsServer = DnsServer(scope, resolver, tunIp, sink, log)
+    val dnsServer = DnsServer(
+        scope = scope,
+        resolver = resolver,
+        fallbackResolvers = listOf(
+            DohResolver(DohProvider.GOOGLE, protector, log),
+            DohResolver(DohProvider.CLOUDFLARE, protector, log, preferUdp = true),
+            DohResolver(DohProvider.GOOGLE, protector, log, preferUdp = true),
+        ),
+        tunIp = tunIp,
+        sink = sink,
+        log = log,
+    )
     val udpForwarder = UdpForwarder(protector, sink, tunIp, stats, blockQuic, log)
-    val tcpStack = TcpStack(sink, mtu, FlowListener { flow -> onTcpFlow(flow) })
+    val tcpStack = TcpStack(sink, mtu, FlowListener { flow -> onTcpFlow(flow) }, log)
     private fun onTcpFlow(flow: TcpFlow) {
         counters.activeFlows.incrementAndGet()
         val decision = router.pick(flow.dstIp, flow.dstPort, dnsServer.hostnameMap[flow.dstIp])

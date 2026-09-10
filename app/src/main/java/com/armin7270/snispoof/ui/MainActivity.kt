@@ -13,8 +13,10 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Radar
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -96,6 +98,10 @@ class MainActivity : ComponentActivity() {
                 when (destination) {
                     Destination.HOME ->
                         MainScreen(vm, onOpenSettings = { destination = Destination.SETTINGS }, onOpenApps = { destination = Destination.APPS }, onConnect = requestConnect)
+                    Destination.CONFIGS ->
+                        ConfigsScreen(vm) { destination = Destination.HOME }
+                    Destination.SCANNER ->
+                        ScannerScreen(vm) { destination = Destination.HOME }
                     Destination.APPS ->
                         AppsScreen(vm) { destination = Destination.HOME }
                     Destination.SETTINGS ->
@@ -107,12 +113,16 @@ class MainActivity : ComponentActivity() {
 
     private enum class Destination(val icon: ImageVector) {
         HOME(Icons.Rounded.Home),
+        CONFIGS(Icons.Rounded.CloudDownload),
+        SCANNER(Icons.Rounded.Radar),
         APPS(Icons.Rounded.Dns),
         SETTINGS(Icons.Rounded.Settings);
 
         @Composable
         fun label(): String = when (this) {
             HOME -> t("Home", "خانه")
+            CONFIGS -> t("Configs", "کانفیگ‌ها")
+            SCANNER -> t("Scanner", "اسکنر")
             APPS -> t("Apps", "برنامه‌ها")
             SETTINGS -> t("Settings", "تنظیمات")
         }

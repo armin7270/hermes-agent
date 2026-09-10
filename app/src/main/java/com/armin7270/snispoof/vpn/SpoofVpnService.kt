@@ -64,6 +64,7 @@ class SpoofVpnService : VpnService() {
     private val counters = EngineCounters()
     private val stats = TrafficStats()
     private lateinit var prefs: PreferencesRepository
+    private lateinit var configStore: com.armin7270.snispoof.state.ConfigStore
     @Volatile private var tunHandler: TunPacketHandler? = null
 
     companion object {
@@ -77,6 +78,7 @@ class SpoofVpnService : VpnService() {
     override fun onCreate() {
         super.onCreate()
         prefs = PreferencesRepository(this)
+        configStore = com.armin7270.snispoof.state.ConfigStore.get(this)
         createNotificationChannel()
     }
 
@@ -247,7 +249,15 @@ class SpoofVpnService : VpnService() {
             val dstIpBytes = Ip4.bytes(decision.targetIp)
             val dst = InetSocketAddress(InetAddress.getByAddress(dstIpBytes), decision.targetPort)
             val dstLabel = "${Ip4.toString(decision.targetIp)}:${decision.targetPort}"
+            val activeConfig = configStore.active()
 
+            // ---- config mode: tunnel through the imported proxy -----------
+            if (activeConfig != null) {
+                relayViaConfig(flow, activeConfig, decision, dstLabel)
+                return@launch
+            }
+
+            // ---- direct mode: patterniha desync against the real dst ------
             var socket = Socket()
             protector?.protectSocket(socket)
             socket.tcpNoDelay = true
@@ -292,6 +302,35 @@ class SpoofVpnService : VpnService() {
                 runCatching { flow.rst() }
                 runCatching { socket.close() }
             }
+        }
+    }
+
+    /** Tunnels the flow through the imported VLESS/Trojan config. */
+    private suspend fun relayViaConfig(
+        flow: TcpFlow,
+        config: com.armin7270.snispoof.core.proxy.ProxyConfig,
+        decision: com.armin7270.snispoof.core.engine.ProfileRouter.Decision,
+        dstLabel: String,
+    ) {
+        var tunnel: com.armin7270.snispoof.core.proxy.ProxyTunnel.Tunnel? = null
+        try {
+            val desyncParams = decision.desync
+            val opened = com.armin7270.snispoof.core.proxy.ProxyTunnel.open(
+                config = config,
+                targetIp = decision.targetIp,
+                targetPort = decision.targetPort,
+                protector = protector,
+                desync = desyncParams,
+                onFragment = { counters.fragmentsInjected.addAndGet(it.toLong()) },
+                log = ::appLog,
+            )
+            tunnel = opened
+            VpnStateStore.log("tunnel ${config.name} → $dstLabel")
+            pump(flow, opened.output, opened.input, opened)
+        } catch (e: Exception) {
+            VpnStateStore.log("tunnel $dstLabel failed: ${e.message}")
+            runCatching { flow.rst() }
+            runCatching { tunnel?.close() }
         }
     }
 
@@ -355,8 +394,16 @@ class SpoofVpnService : VpnService() {
     }.getOrNull()
 
     private suspend fun pump(flow: TcpFlow, socket: Socket, first: ByteArray? = null) {
-        val out = socket.getOutputStream()
-        val input = socket.getInputStream()
+        pump(flow, socket.getOutputStream(), socket.getInputStream(), socket, first)
+    }
+
+    private suspend fun pump(
+        flow: TcpFlow,
+        out: java.io.OutputStream,
+        input: java.io.InputStream,
+        closeable: java.io.Closeable,
+        first: ByteArray? = null,
+    ) {
         val upstream = scope.launch {
             if (first != null) {
                 stats.up(first.size)
@@ -368,7 +415,6 @@ class SpoofVpnService : VpnService() {
                 out.write(data)
                 out.flush()
             }
-            runCatching { socket.shutdownOutput() }
         }
         val buf = ByteArray(16384)
         try {
@@ -383,7 +429,7 @@ class SpoofVpnService : VpnService() {
             flow.rst()
         } finally {
             upstream.cancel()
-            runCatching { socket.close() }
+            runCatching { closeable.close() }
         }
     }
 

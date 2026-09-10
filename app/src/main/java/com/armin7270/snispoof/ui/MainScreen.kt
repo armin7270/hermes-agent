@@ -64,6 +64,9 @@ fun MainScreen(
     val stats by vm.stats.collectAsStateWithLifecycle()
     val logs by vm.logs.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
+    val configs by vm.configs.collectAsStateWithLifecycle()
+    val selectedConfigId by vm.selectedConfigId.collectAsStateWithLifecycle()
+    val activeConfig = configs.firstOrNull { it.id == selectedConfigId }
     val accent = colorsFor(state).accent
     var showDnsSheet by remember { mutableStateOf(false) }
 
@@ -130,7 +133,7 @@ fun MainScreen(
             Spacer(Modifier.height(10.dp))
 
             // ---- mode summary ----
-            ModeSummaryCard(settings, accent, onOpenSettings, onOpenApps, { showDnsSheet = true })
+            ModeSummaryCard(settings, accent, onOpenSettings, onOpenApps, { showDnsSheet = true }, activeConfig?.name)
 
             Spacer(Modifier.height(10.dp))
 
@@ -246,6 +249,7 @@ private fun ModeSummaryCard(
     onOpenSettings: () -> Unit,
     onOpenApps: () -> Unit,
     onOpenDns: () -> Unit,
+    activeConfig: String?,
 ) {
     ToolCard(
         modifier = Modifier.padding(horizontal = 18.dp),
@@ -257,6 +261,12 @@ private fun ModeSummaryCard(
             PerAppMode.WHITELIST -> t("Whitelist (${settings.perAppPackages.size})", "لیست سفید (${settings.perAppPackages.size})")
             PerAppMode.BLACKLIST -> t("Blacklist (${settings.perAppPackages.size})", "لیست سیاه (${settings.perAppPackages.size})")
         }
+        RowInfo(
+            Icons.Rounded.Shield,
+            t("Tunnel mode", "حالت تونل"),
+            activeConfig ?: t("Direct (DPI desync)", "مستقیم (desync)"),
+            onOpenSettings,
+        )
         RowInfo(Icons.Rounded.Shield, t("Per-app routing", "مسیریابی برنامه‌ها"), perApp, onOpenApps)
         RowInfo(Icons.Rounded.Dns, "DNS", settings.dnsIp, onOpenDns)
         RowInfo(

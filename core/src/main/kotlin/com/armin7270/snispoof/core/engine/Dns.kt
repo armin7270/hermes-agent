@@ -43,6 +43,8 @@ class DohResolver(
     @Volatile var provider: DohProvider,
     private val protector: SocketProtector,
     private val log: (String) -> Unit,
+    /** try plain UDP:53 first (skip TLS entirely) — useful when DoH is blocked */
+    private val preferUdp: Boolean = false,
 ) {
     private data class Entry(val response: ByteArray, val expiresAt: Long)
     private val cache = ConcurrentHashMap<String, Entry>()
@@ -57,7 +59,10 @@ class DohResolver(
         val cached = cache[key]
         if (cached != null && System.currentTimeMillis() < cached.expiresAt) return@withContext cached.response
 
-        val response = runCatching { httpQuery(wire) }.getOrNull()
+        val response = runCatching {
+            if (preferUdp) udpFallback(wire) else httpQuery(wire)
+        }.getOrNull()
+            ?: runCatching { httpQuery(wire) }.getOrNull()
             ?: runCatching { udpFallback(wire) }.getOrNull()
         if (response != null) {
             val ttl = minAnswerTtl(response).coerceIn(30, 1800)
@@ -286,10 +291,13 @@ class DohResolver(
  * Answers UDP:53 queries arriving on the TUN. AAAA is answered with an empty
  * NOERROR so apps use IPv4 inside the tunnel; everything else is passed
  * through to DoH and A records are learned for hostname display / matching.
+ * If the primary provider fails, the query is retried across the fallback
+ * chain (DoH then plain UDP for every provider).
  */
 class DnsServer(
     private val scope: CoroutineScope,
     private val resolver: DohResolver,
+    private val fallbackResolvers: List<DohResolver>,
     private val tunIp: Int,
     private val sink: PacketSink,
     private val log: (String) -> Unit,
@@ -319,7 +327,11 @@ class DnsServer(
                     qtype == 28 -> emptyNoError(wire, qNameEnd + 4) // AAAA -> force IPv4
                     cached != null && System.currentTimeMillis() < cached.expiresAt -> cached.response
                     else -> {
-                        val resp = resolver.query(wire)
+                        var resp = resolver.query(wire)
+                        for (fb in fallbackResolvers) {
+                            if (resp != null) break
+                            resp = fb.query(wire)
+                        }
                         if (resp != null) {
                             val ttl = DohResolver.minAnswerTtl(resp).coerceIn(30, 1800)
                             cache[key] = Entry(resp, System.currentTimeMillis() + ttl * 1000L)

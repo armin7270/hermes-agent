@@ -94,6 +94,7 @@ object VpnStateStore {
     fun log(line: String) {
         val stamped = "%1\$TH:%1\$TM:%1\$TS.%1\$TL  %2\$s"
             .format(System.currentTimeMillis(), line)
+        android.util.Log.i("SNISpoof", line)
         val next = ArrayList<String>(_logs.value.size + 1)
         next.addAll(_logs.value)
         next.add(stamped)
