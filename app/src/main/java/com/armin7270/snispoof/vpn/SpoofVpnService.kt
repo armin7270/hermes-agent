@@ -219,8 +219,12 @@ class SpoofVpnService : VpnService() {
             }
         }
         statsJob = scope.launch {
+            var prevUp = 0L
+            var prevDown = 0L
             while (isActive && running.get()) {
                 delay(1000)
+                val up = stats.upBytes.get()
+                val down = stats.downBytes.get()
                 VpnStateStore.setStats(
                     EngineStats(
                         packetsInspected = counters.packetsInspected.get(),
@@ -228,12 +232,16 @@ class SpoofVpnService : VpnService() {
                         fragmentsInjected = counters.fragmentsInjected.get(),
                         clientHellosSeen = counters.clientHellosSeen.get(),
                         activeFlows = counters.activeFlows.get(),
-                        upBytes = stats.upBytes.get(),
-                        downBytes = stats.downBytes.get(),
+                        upBytes = up,
+                        downBytes = down,
+                        upRate = up - prevUp,
+                        downRate = down - prevDown,
                         uptimeSec = VpnStateStore.uptimeSec(),
                         lastPingMs = stats.lastPingMs,
                     )
                 )
+                prevUp = up
+                prevDown = down
             }
         }
     }

@@ -20,6 +20,8 @@ data class EngineStats(
     val activeFlows: Long = 0,
     val upBytes: Long = 0,
     val downBytes: Long = 0,
+    val upRate: Long = 0,
+    val downRate: Long = 0,
     val uptimeSec: Long = 0,
     val lastPingMs: Long = -1,
 )

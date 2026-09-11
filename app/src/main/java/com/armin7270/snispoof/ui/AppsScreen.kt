@@ -1,6 +1,9 @@
 package com.armin7270.snispoof.ui
 
 import android.content.pm.ApplicationInfo
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.Drawable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -18,11 +21,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -45,7 +47,7 @@ import com.armin7270.snispoof.ui.theme.SpoofColors
 
 /** Per-app whitelist / blacklist picker (UAC-style app bypass screen). */
 @Composable
-fun AppsScreen(vm: VpnViewModel, onBack: () -> Unit) {
+internal fun AppsScreen(vm: VpnViewModel, onMenuClick: () -> Unit) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val accent = SpoofColors.DisconnectedBlue
     val context = LocalContext.current
@@ -59,27 +61,23 @@ fun AppsScreen(vm: VpnViewModel, onBack: () -> Unit) {
             .sortedBy { it.label.lowercase() }
     }
 
-    ToolPageBackground(accent) {
-        Column(Modifier.fillMaxSize()) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.Rounded.ArrowBack, null, tint = SpoofColors.TextPrimary)
-                }
-                Column {
-                    Text(t("Per-app routing", "مسیریابی برنامه‌ها"), color = SpoofColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        when (settings.perAppMode) {
-                            com.armin7270.snispoof.state.PerAppMode.ALL -> t("Mode: all apps", "حالت: همه برنامه‌ها")
-                            com.armin7270.snispoof.state.PerAppMode.WHITELIST -> t("Mode: whitelist", "حالت: لیست سفید")
-                            com.armin7270.snispoof.state.PerAppMode.BLACKLIST -> t("Mode: blacklist", "حالت: لیست سیاه")
-                        },
-                        color = SpoofColors.TextSecondary, fontSize = 11.sp,
-                    )
-                }
-            }
+    ToolPageScaffold(
+        accent = accent,
+        header = {
+            ToolPageHeader(
+                title = t("Per-app routing", "مسیریابی برنامه‌ها"),
+                subtitle = when (settings.perAppMode) {
+                    com.armin7270.snispoof.state.PerAppMode.ALL -> t("Mode: tunnel all apps", "حالت: همه برنامه‌ها از تونل")
+                    com.armin7270.snispoof.state.PerAppMode.WHITELIST -> t("Mode: tunnel only selected", "حالت: فقط انتخاب‌شده‌ها")
+                    com.armin7270.snispoof.state.PerAppMode.BLACKLIST -> t("Mode: bypass selected", "حالت: دورزدن انتخاب‌شده‌ها")
+                },
+                icon = Icons.Rounded.Dns,
+                accent = accent,
+                onMenuClick = onMenuClick,
+            )
+        },
+    ) {
+        item {
             TextField(
                 value = query,
                 onValueChange = { query = it },
@@ -92,62 +90,46 @@ fun AppsScreen(vm: VpnViewModel, onBack: () -> Unit) {
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent,
                 ),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        val filtered = apps.filter {
+            query.isBlank() || it.label.contains(query, true) || it.pkg.contains(query, true)
+        }
+        items(filtered, key = { it.pkg }) { app ->
+            val selected = app.pkg in settings.perAppPackages
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 18.dp),
-            )
-            Spacer(Modifier.size(8.dp))
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                    .clickable { vm.togglePerAppPackage(app.pkg) }
+                    .background(
+                        if (selected) accent.copy(alpha = 0.08f) else Color.Transparent,
+                        RoundedCornerShape(12.dp),
+                    )
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
             ) {
-                val filtered = apps.filter {
-                    query.isBlank() || it.label.contains(query, true) || it.pkg.contains(query, true)
+                val icon = remember(app.pkg) {
+                    runCatching { context.packageManager.getApplicationIcon(app.pkg) }.getOrNull()
                 }
-                items(filtered, key = { it.pkg }) { app ->
-                    val selected = app.pkg in settings.perAppPackages
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { vm.togglePerAppPackage(app.pkg) }
-                            .background(
-                                if (selected) accent.copy(alpha = 0.08f) else Color.Transparent,
-                                RoundedCornerShape(12.dp),
-                            )
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                    ) {
-                        val icon = remember(app.pkg) {
-                            runCatching {
-                                context.packageManager.getApplicationIcon(app.pkg)
-                            }.getOrNull()
+                Box(Modifier.size(38.dp).padding(4.dp), contentAlignment = Alignment.Center) {
+                    icon?.let {
+                        val bmp = remember(app.pkg) {
+                            runCatching { it.toBitmap().asImageBitmap() }.getOrNull()
                         }
-                        Box(
-                            Modifier
-                                .size(38.dp)
-                                .padding(4.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            icon?.let {
-                                val bmp = remember(app.pkg) {
-                                    runCatching { it.toBitmap().asImageBitmap() }.getOrNull()
-                                }
-                                bmp?.let { Image(it, null, modifier = Modifier.size(26.dp)) }
-                            }
-                        }
-                        Spacer(Modifier.size(8.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(app.label, color = SpoofColors.TextPrimary, fontSize = 14.sp, maxLines = 1)
-                            Text(app.pkg, color = SpoofColors.TextSecondary, fontSize = 10.sp, maxLines = 1)
-                        }
-                        Checkbox(
-                            checked = selected,
-                            onCheckedChange = { vm.togglePerAppPackage(app.pkg) },
-                            colors = CheckboxDefaults.colors(checkedColor = accent),
-                        )
+                        bmp?.let { Image(it, null, modifier = Modifier.size(26.dp)) }
                     }
                 }
+                Spacer(Modifier.size(8.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(app.label, color = SpoofColors.TextPrimary, fontSize = 14.sp, maxLines = 1)
+                    Text(app.pkg, color = SpoofColors.TextSecondary, fontSize = 10.sp, maxLines = 1)
+                }
+                Checkbox(
+                    checked = selected,
+                    onCheckedChange = { vm.togglePerAppPackage(app.pkg) },
+                    colors = CheckboxDefaults.colors(checkedColor = accent),
+                )
             }
         }
     }
@@ -155,9 +137,13 @@ fun AppsScreen(vm: VpnViewModel, onBack: () -> Unit) {
 
 private data class AppEntry(val pkg: String, val label: String)
 
-private fun android.graphics.drawable.Drawable.toBitmap(): android.graphics.Bitmap {
-    val bmp = android.graphics.Bitmap.createBitmap(intrinsicWidth.coerceAtLeast(1), intrinsicHeight.coerceAtLeast(1), android.graphics.Bitmap.Config.ARGB_8888)
-    val canvas = android.graphics.Canvas(bmp)
+private fun Drawable.toBitmap(): Bitmap {
+    val bmp = Bitmap.createBitmap(
+        intrinsicWidth.coerceAtLeast(1),
+        intrinsicHeight.coerceAtLeast(1),
+        Bitmap.Config.ARGB_8888,
+    )
+    val canvas = Canvas(bmp)
     setBounds(0, 0, canvas.width, canvas.height)
     draw(canvas)
     return bmp

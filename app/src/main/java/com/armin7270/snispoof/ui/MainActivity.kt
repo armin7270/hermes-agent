@@ -10,31 +10,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CloudDownload
-import androidx.compose.material.icons.rounded.Dns
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Radar
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.armin7270.snispoof.state.VpnViewModel
-import com.armin7270.snispoof.ui.theme.SpoofColors
 import com.armin7270.snispoof.ui.theme.SpoofTheme
 
 class MainActivity : ComponentActivity() {
@@ -46,18 +27,17 @@ class MainActivity : ComponentActivity() {
         setContent {
             val settings by vm.settings.collectAsStateWithLifecycle()
             LaunchedEffect(settings.language) {
-                L10n.language.value = settings.language
+                L10nRuntime.language = settings.language
             }
             SpoofTheme {
-                App()
+                Root(vm)
             }
         }
     }
 
     @Composable
-    private fun App() {
+    private fun Root(vm: VpnViewModel) {
         val context = LocalContext.current
-        var destination by remember { mutableStateOf(Destination.HOME) }
 
         val vpnLauncher = rememberLauncherForActivityResult(
             ActivityResultContracts.StartActivityForResult()
@@ -79,52 +59,13 @@ class MainActivity : ComponentActivity() {
             if (prepare != null) vpnLauncher.launch(prepare) else vm.connect()
         }
 
-        Scaffold(
-            containerColor = SpoofColors.BackgroundTop,
-            bottomBar = {
-                NavigationBar(containerColor = SpoofColors.Surface) {
-                    Destination.entries.forEach { dest ->
-                        NavigationBarItem(
-                            selected = destination == dest,
-                            onClick = { destination = dest },
-                            icon = { Icon(dest.icon, null) },
-                            label = { Text(dest.label()) },
-                        )
-                    }
-                }
-            },
-        ) { padding ->
-            Box(Modifier.padding(padding)) {
-                when (destination) {
-                    Destination.HOME ->
-                        MainScreen(vm, onOpenSettings = { destination = Destination.SETTINGS }, onOpenApps = { destination = Destination.APPS }, onConnect = requestConnect)
-                    Destination.CONFIGS ->
-                        ConfigsScreen(vm) { destination = Destination.HOME }
-                    Destination.SCANNER ->
-                        ScannerScreen(vm) { destination = Destination.HOME }
-                    Destination.APPS ->
-                        AppsScreen(vm) { destination = Destination.HOME }
-                    Destination.SETTINGS ->
-                        SettingsScreen(vm, onBack = { destination = Destination.HOME }, onOpenApps = { destination = Destination.APPS })
-                }
-            }
-        }
-    }
-
-    private enum class Destination(val icon: ImageVector) {
-        HOME(Icons.Rounded.Home),
-        CONFIGS(Icons.Rounded.CloudDownload),
-        SCANNER(Icons.Rounded.Radar),
-        APPS(Icons.Rounded.Dns),
-        SETTINGS(Icons.Rounded.Settings);
-
-        @Composable
-        fun label(): String = when (this) {
-            HOME -> t("Home", "خانه")
-            CONFIGS -> t("Configs", "کانفیگ‌ها")
-            SCANNER -> t("Scanner", "اسکنر")
-            APPS -> t("Apps", "برنامه‌ها")
-            SETTINGS -> t("Settings", "تنظیمات")
+        androidx.compose.runtime.CompositionLocalProvider(LocalWideShell provides false) {
+            MainScreen(
+                vm = vm,
+                onOpenSettings = { },
+                onOpenApps = { },
+                onConnect = requestConnect,
+            )
         }
     }
 }

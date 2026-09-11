@@ -75,6 +75,7 @@ class VpnViewModel(private val appContext: Context) : ViewModel() {
     fun setRootMode(v: Boolean) = viewModelScope.launch { prefs.setRootMode(v) }
     fun setPerAppMode(v: PerAppMode) = viewModelScope.launch { prefs.setPerAppMode(v) }
     fun togglePerAppPackage(pkg: String) = viewModelScope.launch { prefs.togglePerAppPackage(pkg) }
+    fun setLanguage(v: String) = viewModelScope.launch { prefs.setLanguage(v) }
 
     companion object {
         fun factory(context: Context) = object : androidx.lifecycle.ViewModelProvider.Factory {
